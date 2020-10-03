@@ -10,11 +10,12 @@ from discord.ext import commands  # external
 from veigar_cass_comm import VeigarBotUser
 from veigar_cass_comm import VeigarCassClient
 from veigar_statics import VeigarStatics  # static messages
+from discord.ext.commands import CommandNotFound
 
-
-# BUG: !v verify tr "DĄRTH VADER" no space allowed
-# ROLE ASSIGN
-
+# TODO BUG: !v verify tr "DĄRTH VADER" no space allowed Test This
+# -- 2
+# TODO ROLE ASSIGN
+# TODO Move APIKeys in File & Template file
 
 # required parameters
 DC_API_KEY = "NzUwNzQwNDAyMDU0ODg5NDcy.X0-7ew.u3QhSqaX2AUk_w62laGxfe8_0Yc"
@@ -23,7 +24,7 @@ RIOT_API_KEY = "RGAPI-e6b5a485-33c6-4efd-b14f-ab164bff3c44"
 COMMAND_PREFIXES = ["!veigar ", "!v "]
 CLT_CHK_TM_INTERVAL = 20  # seconds
 MAX_QUEUE_SIZE = 100
-
+ARG_SPACE = ' '
 ###################################################################################
 # author:       ebilgin
 # September:    September 2020
@@ -83,6 +84,13 @@ class VeigarCommander(commands.Cog):
     async def on_ready(self):
         logger.info("{0} {1.user}".format(VeigarStatics.MSG_FUNNY_READY, self.bot))
 
+    @commands.Cog.listener()
+    async def on_command_error(self, context, error):
+        if isinstance(error, CommandNotFound):
+            await context.send("", embed=VeigarStatics.get_embed_wrong_verify())
+        return
+
+
     @staticmethod
     async def send_dm(member: discord.Member, content):
         channel = await member.create_dm()
@@ -108,7 +116,7 @@ class VeigarCommander(commands.Cog):
                 return
 
             region = args[0].upper()
-            summoner_name = args[1]
+            summoner_name = ARG_SPACE.join(args[1:])
 
             await context.send("", embed=VeigarStatics.get_embed_control_dm(
                 context.author.name, summoner_name, region))

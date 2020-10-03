@@ -29,8 +29,9 @@ class VeigarStatics:
             title=VeigarStatics.MSG_TITLE_WRONG,
             description="Veigar'dan bazi örnek Kullanimlar: " + os.linesep + os.linesep +
                         "!v verify REGION SUMMONER_NAME" + os.linesep + os.linesep +
-                        "!v verify KR CakmaFaker" + os.linesep + os.linesep +\
-                        "!v verify TR TeemoAvcisi ")
+                        "!v verify KR CakmaFaker" + os.linesep + os.linesep +
+                        "!v verify TR TeemoAvcisi" + os.linesep + os.linesep +
+                        "!v verify TR Darth Vader")
 
     @staticmethod
     def get_embed_control_dm(author, summoner, region):
