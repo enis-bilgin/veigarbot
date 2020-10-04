@@ -1,6 +1,5 @@
 import discord.embeds
 import os
-from enum import Enum
 
 
 class VeigarStatics:
@@ -18,7 +17,7 @@ class VeigarStatics:
                   "2 - Soldaki Menüden Dogrulama Secenegine tiklayiniz" + os.linesep + os.linesep + \
                   "3 - Bu Kodu --->> {0} <<--- kopyalip yapistiriniz, ve gonder/kaydet tiklayiniz. ".format(
                       hashcode) + os.linesep + os.linesep + \
-                  "5 - Eger kodu almadiysaniz 2 dakika icinden yeniden deneyebilirsiniz "
+                  "5 - Eger kodu almadiysaniz 5 dakika icinden yeniden deneyebilirsiniz "
 
         return message
 

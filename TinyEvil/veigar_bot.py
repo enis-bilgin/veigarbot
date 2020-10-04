@@ -1,5 +1,5 @@
+import asyncio
 import logging.config
-import os
 import random
 import sys
 import threading
@@ -12,19 +12,23 @@ from veigar_cass_comm import VeigarCassClient
 from veigar_statics import VeigarStatics  # static messages
 from discord.ext.commands import CommandNotFound
 
-# TODO BUG: !v verify tr "DĄRTH VADER" no space allowed Test This
-# -- 2
-# TODO ROLE ASSIGN
-# TODO Move APIKeys in File & Template file
+# TODO When command written remove from channel
+# TODO ---------- BUGS ---------------
+# TODO ERROR IF UNRANKED FIX THIS
+# TODO IF veigar bot user not approved at first put timer
 
 # required parameters
 DC_API_KEY = "NzUwNzQwNDAyMDU0ODg5NDcy.X0-7ew.u3QhSqaX2AUk_w62laGxfe8_0Yc"
 RIOT_API_KEY = "RGAPI-e6b5a485-33c6-4efd-b14f-ab164bff3c44"
 
+# DC channel specific
 COMMAND_PREFIXES = ["!veigar ", "!v "]
 CLT_CHK_TM_INTERVAL = 20  # seconds
 MAX_QUEUE_SIZE = 100
 ARG_SPACE = ' '
+DFLT_CHN_ID = 762425753286475786
+DFLT_CHN_NM = "veigar-bot"
+
 ###################################################################################
 # author:       ebilgin
 # September:    September 2020
@@ -45,6 +49,10 @@ class VeigarCommander(commands.Cog):
         self.valid_regions = VeigarStatics.get_valid_regions()
         self.dc_api_key = dc_api_key
         self.veigar_cass_client = VeigarCassClient(RIOT_API_KEY, "TR")
+        # initialize guild & default channel
+        self.guild = discord.Guild
+        self.roles = {}
+        self.default_role = discord.role
 
         # client check users on timer
         self._client_thread = threading.Thread(target=self.run_processed_user_checker, name="Client_W1")
@@ -55,23 +63,75 @@ class VeigarCommander(commands.Cog):
     # triggers in time intervals
     # Use discord bot event loop to submit a task
     def get_users_in_time_interval(self):
-        logger.info("get_users_in_time_interval")
+        # logger.info("get_users_in_time_interval")
 
         processed_users = self.veigar_cass_client.get_processed_users()
         try:
-
             for user in processed_users:
                 if user:
-                    logger.info("user: {0}".format(user.context_author))
+                    logger.info("user approved: {0}".format(user.context_author))
                     embed_verified_dm = discord.Embed(color=0x33a2ff)
-                    embed_verified_dm.add_field(name="Verification", value="Hosgeldiniz")
-                    self.bot.loop.create_task(self.send_dm(user.context_author, content=embed_verified_dm))
+                    embed_verified_dm.add_field(name="Verification", value="Hosgeldiniz Hesap Dogrulandi")
+
+                    asyncio.run_coroutine_threadsafe(
+                        self.send_dm(user.context_author, content=embed_verified_dm),
+                        self.bot.loop)
+
+                    dflt_channel = discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM)
+                    # Put this in map Str --> Role
+
+                    asyncio.run_coroutine_threadsafe(
+                        self.assign_role(dflt_channel,
+                                         user.context_author,
+                                         self.roles.get(user.tier,
+                                         self.default_role)),
+                        self.bot.loop)
+
         except Exception as e:
             logger.error(" get_users_in_time_interval issue: {0}", e)
 
     def run_processed_user_checker(self):
         while not self._client_timer_stopped.wait(CLT_CHK_TM_INTERVAL):
             self.get_users_in_time_interval()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        logger.info("{0} {1.user}".format(VeigarStatics.MSG_FUNNY_READY, self.bot))
+
+        # first guild assign
+        self.guild = self.bot.guilds[0]
+
+        logger.info("Guild Set: {0}".format(self.guild.name))
+
+        self.default_role = discord.utils.get(self.guild.roles, name='Unranked')
+
+        self.roles = {
+            'iron': discord.utils.get(self.guild.roles, name='Iron'),
+            'bronze': discord.utils.get(self.guild.roles, name='Bronze'),
+            'silver': discord.utils.get(self.guild.roles, name='Silver'),
+            'gold': discord.utils.get(self.guild.roles, name='Gold'),
+            'platinum': discord.utils.get(self.guild.roles, name='Platinum'),
+            'diamond': discord.utils.get(self.guild.roles, name='Diamond'),
+            'master': discord.utils.get(self.guild.roles, name='Master'),
+            'grandmaster': discord.utils.get(self.guild.roles, name='Grandmaster'),
+            'ghallenger': discord.utils.get(self.guild.roles, name='Challenger')
+        }
+
+    @commands.Cog.listener()
+    async def on_command_error(self, context, error):
+        if isinstance(error, CommandNotFound):
+            await context.send("", embed=VeigarStatics.get_embed_wrong_verify())
+        return
+
+    @staticmethod
+    async def send_dm(member: discord.Member, content):
+        channel = await member.create_dm()
+        await channel.send(embed=content)
+
+    @staticmethod
+    def get_new_hashcode():
+        self_hash = random.getrandbits(128)
+        return "%032x" % self_hash
 
     @commands.command()
     async def ping(self, context):
@@ -80,36 +140,19 @@ class VeigarCommander(commands.Cog):
         embed_var.add_field(name="Latency: ".format(context.author), value=latency, inline=False)
         await context.channel.send(embed=embed_var)
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        logger.info("{0} {1.user}".format(VeigarStatics.MSG_FUNNY_READY, self.bot))
-
-    @commands.Cog.listener()
-    async def on_command_error(self, context, error):
-        if isinstance(error, CommandNotFound):
-            await context.send("", embed=VeigarStatics.get_embed_wrong_verify())
-        return
-
-
-    @staticmethod
-    async def send_dm(member: discord.Member, content):
-        channel = await member.create_dm()
-        await channel.send(embed=content)
-
     @commands.command()
-    async def clear(self, context, numOfLines=0):
-        if numOfLines == 0:
+    async def clear(self, context, num_of_lines=0):
+        if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
+            return
+        if num_of_lines == 0:
             await context.channel.purge(limit=100)
         else:
-            await context.channel.purge(limit=numOfLines + 1)
-
-    @staticmethod
-    def get_new_hashcode():
-        self_hash = random.getrandbits(128)
-        return "%032x" % self_hash
+            await context.channel.purge(limit=num_of_lines + 1)
 
     @commands.command()
     async def verify(self, context, *args):
+        if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
+            return
         try:
             if len(args) < 2 or args[0].upper() not in self.valid_regions:
                 await context.send("", embed=VeigarStatics.get_embed_wrong_verify())
@@ -134,6 +177,15 @@ class VeigarCommander(commands.Cog):
 
         except Exception as e:
             logger.error("Verification Issue: {0}".format(e))
+
+    @staticmethod
+    async def assign_role(channel: discord.TextChannel, user: discord.Member, role: discord.Role):
+        await user.add_roles(role)
+        embed_var = discord.Embed(color=0x33a2ff)
+        embed_val = f"League Tier {role.name} "
+        embed_var.add_field(name="Hey Sunucumuza Hosgeldin {0}".format(user.name), value=embed_val, inline=False)
+        await channel.send(embed=embed_var)
+
 
     def stop(self):
         logger.info("Join & Stop Thread: {0}".format(self._client_thread.name))
@@ -173,4 +225,4 @@ if __name__ == '__main__':
     logger.info(VeigarStatics.MSG_EXIT)
 
     # exit
-    sys.exit(os.EX_OK)
+    sys.exit()
