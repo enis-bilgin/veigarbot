@@ -9,6 +9,7 @@ class VeigarStatics:
     MSG_SHUTDOWN = "---------- Veigar Greceful Shutdown! ----------"
     MSG_TITLE_WRONG = "Bir Seyler Ters!"
     MSG_FUNNY_READY = "VeigarBot, UserId:"
+    MSG_HELP = "Is that a short joke!"
 
     @staticmethod
     def get_instruction_message(hashcode: str):
@@ -33,11 +34,24 @@ class VeigarStatics:
                         "!v verify TR Darth Vader")
 
     @staticmethod
-    def get_embed_control_dm(author, summoner, region):
+    def get_embed_help():
+        return discord.Embed(
+            color=0x00CC66,
+            title="",
+            description="Command Prefix: `!v !veigar` ile aktiflestirilir" + os.linesep + os.linesep +
+                        "NOT: verify sadece bu kanalda kullanilabilir" + os.linesep + os.linesep +
+                        "`!v clear` kanal mesajlarini siler (admin'e özel)" + os.linesep + os.linesep +
+                        "`!v ping` botun yasam belirtisi, round-trip ping " + os.linesep + os.linesep +
+                        "`!v verify {Region} {SummonerName}` account dogrulama örnek: " + os.linesep + os.linesep +
+                        "`!v verify TR CakmaFaker`" + os.linesep + os.linesep +
+                        "`!v verify TR Darth Vade`r")
+
+    @staticmethod
+    def get_embed_control_dm(author):
         return discord.Embed(
             color=0x33a2ff,
             title="{0} Mesaj Kutunuzu Kontrol Ediniz ".format(author),
-            description="Region: {0} SummonerName: {1}".format(region, summoner))
+            description="")
 
     @staticmethod
     def get_embed_instructions(hash_code):

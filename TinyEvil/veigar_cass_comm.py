@@ -3,6 +3,7 @@ import logging.config
 import threading
 import queue
 import time
+import urllib3
 
 from cassiopeia.data import Queue
 from os import path
@@ -15,6 +16,7 @@ DEFAULT_REGION = "TR"
 MAX_QUEUE_SIZE = 1000  # max 100 requests per second
 MAX_THREAD_NUM = 5  # worker threads
 MAX_DURATION_SUMM = 600  # seconds
+MIN_DURATION_SUMM = 4  # seconds time elapse between each call
 THREAD_TIME_INTERVAL = 15  # seconds
 THREAD_PREFIX = "Cass_"  # thread prefix, linux
 
@@ -50,16 +52,18 @@ class VeigarBotUser:
         self.summoner_name = summoner_name
         self.region = region
         self.is_approved = False
-        self.time_stamp = current_time_in_seconds()
+        self.ts_max = current_time_in_seconds()
+        self.ts_min = current_time_in_seconds()
         self.hash_code = hash_code
         self.tier = "Unranked"
 
 
+###################################################################################
 # IMPORTANT: API Calls, approval
 # if (time not passed, put back into queue)
 # if (time has passed, put in processed users queue)
 # if (successful verification put in processed user queue as APPROVED)
-
+###################################################################################
 class CassWorkerManager:
     # multi worker; single writer pattern
     class CassWorkerThread(threading.Thread):
@@ -78,23 +82,32 @@ class CassWorkerManager:
 
         def verify_summoner(self, veigar_bot_user):
 
-            # logger.debug("Verifying: Thread_Name {0} {1}".format(self.name, summoner.summoner_name))
+            # Expired user
+            if time_difference_in_seconds(current_time_in_seconds(), veigar_bot_user.ts_max) > MAX_DURATION_SUMM:
+                return
 
-            if time_difference_in_seconds(current_time_in_seconds(), veigar_bot_user.time_stamp) > MAX_DURATION_SUMM:
+            # process attempt adjust timestamp, in 2 seconds process again
+            if time_difference_in_seconds(current_time_in_seconds(), veigar_bot_user.ts_min) < MIN_DURATION_SUMM:
+                veigar_bot_user.ts_min = current_time_in_seconds()
+                self.work_queue.put(veigar_bot_user)
                 return
 
             try:
-                # verification string
                 _league_account = cass.Summoner(name=veigar_bot_user.summoner_name, region=veigar_bot_user.region)
 
-                if (Queue.ranked_solo_fives in _league_account.ranks) and \
-                        _league_account.ranks[Queue.ranked_solo_fives].tier.name:
+                ranked_five_exists = [
+                    Queue.ranked_solo_fives in _league_account.ranks,
+                    _league_account.ranks[Queue.ranked_solo_fives].tier.name
+                ]
+
+                # set Rank
+                if all(ranked_five_exists):
                     veigar_bot_user.tier = _league_account.ranks[Queue.ranked_solo_fives].tier.name
 
-                # logger.info("Tier: {0}".format((_league_account.ranks[Queue.ranked_solo_fives].tier.name))) # str tier
-
-                approved = [_league_account.verification_string is not None,
-                            _league_account.verification_string == veigar_bot_user.hash_code]
+                approved = [
+                    _league_account.verification_string is not None,
+                    _league_account.verification_string == veigar_bot_user.hash_code
+                ]
 
                 # processed & approved
                 if all(approved):
@@ -103,8 +116,7 @@ class CassWorkerManager:
                     return
 
                 # pending & put back in queue
-                if time_difference_in_seconds(current_time_in_seconds(),
-                                              veigar_bot_user.time_stamp) < MAX_DURATION_SUMM:
+                if time_difference_in_seconds(current_time_in_seconds(), veigar_bot_user.ts_max) < MAX_DURATION_SUMM:
                     self.work_queue.put(veigar_bot_user)
 
             except Exception as exception:

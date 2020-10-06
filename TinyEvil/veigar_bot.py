@@ -6,6 +6,7 @@ import threading
 from os import path
 
 import discord
+import urllib.parse
 from discord.ext import commands  # external
 from veigar_cass_comm import VeigarBotUser
 from veigar_cass_comm import VeigarCassClient
@@ -13,9 +14,8 @@ from veigar_statics import VeigarStatics  # static messages
 from discord.ext.commands import CommandNotFound
 
 # TODO When command written remove from channel
-# TODO ---------- BUGS ---------------
-# TODO ERROR IF UNRANKED FIX THIS
-# TODO IF veigar bot user not approved at first put timer
+# TODO Make Help Command Better, more better
+# TODO Let Admin execute commands only
 
 # required parameters
 DC_API_KEY = "NzUwNzQwNDAyMDU0ODg5NDcy.X0-7ew.u3QhSqaX2AUk_w62laGxfe8_0Yc"
@@ -161,8 +161,9 @@ class VeigarCommander(commands.Cog):
             region = args[0].upper()
             summoner_name = ARG_SPACE.join(args[1:])
 
-            await context.send("", embed=VeigarStatics.get_embed_control_dm(
-                context.author.name, summoner_name, region))
+            await self.clear(context, 1)
+
+            await context.send("", embed=VeigarStatics.get_embed_control_dm(context.author.name))
 
             new_hash_code = self.get_new_hashcode()
 
@@ -171,12 +172,18 @@ class VeigarCommander(commands.Cog):
             # Bot user: context_author, summoner_name, region, verification_string
             self.veigar_cass_client.verify_league_account(VeigarBotUser(
                 context.author,
-                summoner_name,
+                urllib.parse.quote_plus(summoner_name),
                 region,
                 new_hash_code))
 
         except Exception as e:
             logger.error("Verification Issue: {0}".format(e))
+
+    @commands.command()
+    async def help(self, context):
+        if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
+            return
+        await context.send("", embed=VeigarStatics.get_embed_help())
 
     @staticmethod
     async def assign_role(channel: discord.TextChannel, user: discord.Member, role: discord.Role):
@@ -185,7 +192,6 @@ class VeigarCommander(commands.Cog):
         embed_val = f"League Tier {role.name} "
         embed_var.add_field(name="Hey Sunucumuza Hosgeldin {0}".format(user.name), value=embed_val, inline=False)
         await channel.send(embed=embed_var)
-
 
     def stop(self):
         logger.info("Join & Stop Thread: {0}".format(self._client_thread.name))
@@ -200,6 +206,7 @@ if __name__ == '__main__':
     # main bot -- veigar
     logger.info(VeigarStatics.MSG_WELCOME)
     veigar_bot = commands.Bot(command_prefix=COMMAND_PREFIXES, case_insensitive=True)
+    veigar_bot.remove_command("help")
 
     # cog is a specific command bot
     veigar_cogs = []
