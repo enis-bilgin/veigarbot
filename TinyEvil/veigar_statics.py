@@ -44,7 +44,7 @@ class VeigarStatics:
                         "`!v ping` botun yasam belirtisi, round-trip ping " + os.linesep + os.linesep +
                         "`!v verify {Region} {SummonerName}` account dogrulama örnek: " + os.linesep + os.linesep +
                         "`!v verify TR CakmaFaker`" + os.linesep + os.linesep +
-                        "`!v verify TR Darth Vade`r")
+                        "`!v verify TR Darth Vader`")
 
     @staticmethod
     def get_embed_control_dm(author):

@@ -3,7 +3,6 @@ import logging.config
 import threading
 import queue
 import time
-import urllib3
 
 from cassiopeia.data import Queue
 from os import path

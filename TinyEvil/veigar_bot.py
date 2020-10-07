@@ -3,19 +3,17 @@ import logging.config
 import random
 import sys
 import threading
-from os import path
-
 import discord
 import urllib.parse
+import os
+
+from os import path
 from discord.ext import commands  # external
 from veigar_cass_comm import VeigarBotUser
 from veigar_cass_comm import VeigarCassClient
 from veigar_statics import VeigarStatics  # static messages
 from discord.ext.commands import CommandNotFound
-
-# TODO When command written remove from channel
-# TODO Make Help Command Better, more better
-# TODO Let Admin execute commands only
+from aiohttp import web
 
 # required parameters
 DC_API_KEY = "NzUwNzQwNDAyMDU0ODg5NDcy.X0-7ew.u3QhSqaX2AUk_w62laGxfe8_0Yc"
@@ -40,15 +38,17 @@ logging.config.fileConfig(log_file_path)
 logger = logging.getLogger('loggerConsole')  # change this --> loggerFile
 
 
+
+
 # check in time intervals, approved users, sends dms
 class VeigarCommander(commands.Cog):
-
     def __init__(self, custom_bot, dc_api_key, name):
         self.name = name
         self.bot = custom_bot
         self.valid_regions = VeigarStatics.get_valid_regions()
         self.dc_api_key = dc_api_key
         self.veigar_cass_client = VeigarCassClient(RIOT_API_KEY, "TR")
+
         # initialize guild & default channel
         self.guild = discord.Guild
         self.roles = {}
@@ -83,8 +83,7 @@ class VeigarCommander(commands.Cog):
                     asyncio.run_coroutine_threadsafe(
                         self.assign_role(dflt_channel,
                                          user.context_author,
-                                         self.roles.get(user.tier,
-                                         self.default_role)),
+                                         self.roles.get(user.tier, self.default_role)),
                         self.bot.loop)
 
         except Exception as e:
@@ -141,6 +140,7 @@ class VeigarCommander(commands.Cog):
         await context.channel.send(embed=embed_var)
 
     @commands.command()
+    @commands.has_permissions(administrator=True)
     async def clear(self, context, num_of_lines=0):
         if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
             return
