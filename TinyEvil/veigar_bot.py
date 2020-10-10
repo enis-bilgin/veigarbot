@@ -5,7 +5,7 @@ import sys
 import threading
 import discord
 import urllib.parse
-import os
+import configparser
 
 from os import path
 from discord.ext import commands  # external
@@ -13,19 +13,17 @@ from veigar_cass_comm import VeigarBotUser
 from veigar_cass_comm import VeigarCassClient
 from veigar_statics import VeigarStatics  # static messages
 from discord.ext.commands import CommandNotFound
-from aiohttp import web
 
 # required parameters
-DC_API_KEY = "NzUwNzQwNDAyMDU0ODg5NDcy.X0-7ew.u3QhSqaX2AUk_w62laGxfe8_0Yc"
-RIOT_API_KEY = "RGAPI-e6b5a485-33c6-4efd-b14f-ab164bff3c44"
+global DiscordApiKey
+global RiotApiKey
 
 # DC channel specific
-COMMAND_PREFIXES = ["!veigar ", "!v "]
-CLT_CHK_TM_INTERVAL = 20  # seconds
-MAX_QUEUE_SIZE = 100
+global ClientTimeoutInterval
+global DefaultChannel
+
+# static space
 ARG_SPACE = ' '
-DFLT_CHN_ID = 762425753286475786
-DFLT_CHN_NM = "veigar-bot"
 
 ###################################################################################
 # author:       ebilgin
@@ -38,8 +36,6 @@ logging.config.fileConfig(log_file_path)
 logger = logging.getLogger('loggerConsole')  # change this --> loggerFile
 
 
-
-
 # check in time intervals, approved users, sends dms
 class VeigarCommander(commands.Cog):
     def __init__(self, custom_bot, dc_api_key, name):
@@ -47,7 +43,7 @@ class VeigarCommander(commands.Cog):
         self.bot = custom_bot
         self.valid_regions = VeigarStatics.get_valid_regions()
         self.dc_api_key = dc_api_key
-        self.veigar_cass_client = VeigarCassClient(RIOT_API_KEY, "TR")
+        self.veigar_cass_client = VeigarCassClient(RiotApiKey, "TR")
 
         # initialize guild & default channel
         self.guild = discord.Guild
@@ -77,7 +73,7 @@ class VeigarCommander(commands.Cog):
                         self.send_dm(user.context_author, content=embed_verified_dm),
                         self.bot.loop)
 
-                    dflt_channel = discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM)
+                    dflt_channel = discord.utils.get(self.guild.text_channels, name=DefaultChannel)
                     # Put this in map Str --> Role
 
                     asyncio.run_coroutine_threadsafe(
@@ -90,7 +86,7 @@ class VeigarCommander(commands.Cog):
             logger.error(" get_users_in_time_interval issue: {0}", e)
 
     def run_processed_user_checker(self):
-        while not self._client_timer_stopped.wait(CLT_CHK_TM_INTERVAL):
+        while not self._client_timer_stopped.wait(ClientTimeOutInterval):
             self.get_users_in_time_interval()
 
     @commands.Cog.listener()
@@ -113,7 +109,7 @@ class VeigarCommander(commands.Cog):
             'diamond': discord.utils.get(self.guild.roles, name='Diamond'),
             'master': discord.utils.get(self.guild.roles, name='Master'),
             'grandmaster': discord.utils.get(self.guild.roles, name='Grandmaster'),
-            'ghallenger': discord.utils.get(self.guild.roles, name='Challenger')
+            'challenger': discord.utils.get(self.guild.roles, name='Challenger')
         }
 
     @commands.Cog.listener()
@@ -142,7 +138,7 @@ class VeigarCommander(commands.Cog):
     @commands.command()
     @commands.has_permissions(administrator=True)
     async def clear(self, context, num_of_lines=0):
-        if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
+        if not context.channel == discord.utils.get(self.guild.text_channels, name=DefaultChannel):
             return
         if num_of_lines == 0:
             await context.channel.purge(limit=100)
@@ -151,7 +147,7 @@ class VeigarCommander(commands.Cog):
 
     @commands.command()
     async def verify(self, context, *args):
-        if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
+        if not context.channel == discord.utils.get(self.guild.text_channels, name=DefaultChannel):
             return
         try:
             if len(args) < 2 or args[0].upper() not in self.valid_regions:
@@ -161,7 +157,7 @@ class VeigarCommander(commands.Cog):
             region = args[0].upper()
             summoner_name = ARG_SPACE.join(args[1:])
 
-            await self.clear(context, 1)
+            # await self.clear(context, 1)
 
             await context.send("", embed=VeigarStatics.get_embed_control_dm(context.author.name))
 
@@ -181,7 +177,7 @@ class VeigarCommander(commands.Cog):
 
     @commands.command()
     async def help(self, context):
-        if not context.channel == discord.utils.get(self.guild.text_channels, name=DFLT_CHN_NM):
+        if not context.channel == discord.utils.get(self.guild.text_channels, name=DefaultChannel):
             return
         await context.send("", embed=VeigarStatics.get_embed_help())
 
@@ -203,14 +199,30 @@ class VeigarCommander(commands.Cog):
 # Veigar Bot -- main bot
 if __name__ == '__main__':
 
-    # main bot -- veigar
+    # read configurations
+    curr_dir = path.dirname(path.abspath(__file__))
+    init_file = path.join(curr_dir, 'ConfigFiles/config.ini')
+
+    config = configparser.ConfigParser()
+    if config.read(init_file) is None:
+        logger.info('Issue Reading Config File')
+        sys.exit()
+
+    CommandPrefixes = [str(x) for x in config.get('DEFAULT', 'CommandPrefix').split(',')]
+    ClientTimeOutInterval = config.getint('DEFAULT', 'ClientTimeoutInterval')
+    MaxQueueSize = config.getint('DEFAULT', 'MaxQueueSize')
+    DefaultChannel = config.get('DEFAULT', 'DefaultChannel')
+
+    RiotApiKey = config.get('RIOT', 'RiotApiKey')
+    DiscordApiKey = config.get('DISCORD', 'DiscordApiKey')
+
     logger.info(VeigarStatics.MSG_WELCOME)
-    veigar_bot = commands.Bot(command_prefix=COMMAND_PREFIXES, case_insensitive=True)
+    veigar_bot = commands.Bot(command_prefix=CommandPrefixes, case_insensitive=True)
     veigar_bot.remove_command("help")
 
     # cog is a specific command bot
     veigar_cogs = []
-    veigar_cog_1 = VeigarCommander(veigar_bot, DC_API_KEY, "VeigarCommander")
+    veigar_cog_1 = VeigarCommander(veigar_bot, DiscordApiKey, "VeigarCommander")
     veigar_cogs.append(veigar_cog_1)
 
     # add cogs to main bot
@@ -218,7 +230,7 @@ if __name__ == '__main__':
         veigar_bot.add_cog(cog)
 
     # run main bot (veigar_bot), runs all cogs
-    veigar_bot.run(DC_API_KEY)
+    veigar_bot.run(DiscordApiKey)
 
     logger.info(VeigarStatics.MSG_SHUTDOWN)
 

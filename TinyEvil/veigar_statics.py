@@ -14,11 +14,12 @@ class VeigarStatics:
     @staticmethod
     def get_instruction_message(hashcode: str):
         message = "----------------------------" + os.linesep + os.linesep + \
-                  "1 - League Giris Yapiniz" + os.linesep + os.linesep + \
-                  "2 - Soldaki Menüden Dogrulama Secenegine tiklayiniz" + os.linesep + os.linesep + \
-                  "3 - Bu Kodu --->> {0} <<--- kopyalip yapistiriniz, ve gonder/kaydet tiklayiniz. ".format(
+                  "1 - League of Legends'e giriş yapınız." + os.linesep + os.linesep + \
+                  "2 - Sağ üstte seçenekler kısmından, doğrulama seçeneğine giriniz." + os.linesep + os.linesep + \
+                  "3 - Bu Kodu --->> {0} <<--- kutucuğa kopyalıp yapıştırınız, ve gönder/kaydet'e tıklayınız. ".format(
                       hashcode) + os.linesep + os.linesep + \
-                  "5 - Eger kodu almadiysaniz 5 dakika icinden yeniden deneyebilirsiniz "
+                  "5 - Eğer kodu almadıysanız veya herhangi bir başka problemle" \
+                  " karşılaşırsanız; 5 dakika içinde en baştan tekrar deneyebilirsiniz."
 
         return message
 

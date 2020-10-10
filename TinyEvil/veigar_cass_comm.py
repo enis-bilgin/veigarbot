@@ -11,11 +11,11 @@ from veigar_statics import VeigarStatics  # static messages
 # parameters
 DEFAULT_REGION = "TR"
 
-# threading parameters
+# threading parameter
 MAX_QUEUE_SIZE = 1000  # max 100 requests per second
 MAX_THREAD_NUM = 5  # worker threads
 MAX_DURATION_SUMM = 600  # seconds
-MIN_DURATION_SUMM = 4  # seconds time elapse between each call
+MIN_DURATION_SUMM = 5  # seconds time elapse between each call
 THREAD_TIME_INTERVAL = 15  # seconds
 THREAD_PREFIX = "Cass_"  # thread prefix, linux
 
@@ -82,6 +82,7 @@ class CassWorkerManager:
         def verify_summoner(self, veigar_bot_user):
 
             # Expired user
+            global _league_account
             if time_difference_in_seconds(current_time_in_seconds(), veigar_bot_user.ts_max) > MAX_DURATION_SUMM:
                 return
 
@@ -94,14 +95,11 @@ class CassWorkerManager:
             try:
                 _league_account = cass.Summoner(name=veigar_bot_user.summoner_name, region=veigar_bot_user.region)
 
-                ranked_five_exists = [
-                    Queue.ranked_solo_fives in _league_account.ranks,
-                    _league_account.ranks[Queue.ranked_solo_fives].tier.name
-                ]
-
-                # set Rank
-                if all(ranked_five_exists):
+                if Queue.ranked_solo_fives in _league_account.ranks \
+                        and _league_account.ranks[Queue.ranked_solo_fives].tier.name:
                     veigar_bot_user.tier = _league_account.ranks[Queue.ranked_solo_fives].tier.name
+                else:
+                    pass
 
                 approved = [
                     _league_account.verification_string is not None,
@@ -119,11 +117,16 @@ class CassWorkerManager:
                     self.work_queue.put(veigar_bot_user)
 
             except Exception as exception:
-                logger.error("Issue verifying summoner; Riot API call: {0} {1} {2} {3}"
-                             .format(veigar_bot_user.summoner_name,
-                                     veigar_bot_user.region,
-                                     veigar_bot_user.is_approved,
-                                     exception))
+                if _league_account.exists and \
+                        time_difference_in_seconds(current_time_in_seconds(), veigar_bot_user.ts_max) < MAX_DURATION_SUMM:
+                    self.work_queue.put(veigar_bot_user)
+                    return
+                else:
+                    logger.error("Issue verifying summoner; Riot API call: {0} {1} {2} {3}"
+                                 .format(veigar_bot_user.summoner_name,
+                                         veigar_bot_user.region,
+                                         veigar_bot_user.is_approved,
+                                         exception))
 
         def run(self):
             while not self.stopped.wait(THREAD_TIME_INTERVAL):
