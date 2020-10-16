@@ -210,7 +210,8 @@ if __name__ == '__main__':
         logger.info('Issue Reading Config File')
         sys.exit()
 
-    CommandPrefixes = [str(x) for x in config.get('DEFAULT', 'CommandPrefix').split(',')]
+    CommandPrefixes: list = [str('{0} '.format(x)) for x in config.get('DEFAULT', 'CommandPrefix').split(',') ]
+
     ClientTimeOutInterval = config.getint('DEFAULT', 'ClientTimeoutInterval')
     MaxQueueSize = config.getint('DEFAULT', 'MaxQueueSize')
     DefaultChannel = config.get('DEFAULT', 'DefaultChannel')
